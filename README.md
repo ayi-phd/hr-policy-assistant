@@ -1,26 +1,23 @@
 # AI HR Policy Assistant
 
-A production-oriented prototype demonstrating how to build an **LLM-powered business workflow agent** using Python, FastAPI, AWS Bedrock, and Pydantic.
+An AI-powered HR policy assistant that provides employees with grounded, policy-aware answers to natural-language questions.
 
-The application allows employees to ask natural-language questions about company HR policies. A dedicated Policy Agent determines when policy information is needed, retrieves relevant documents through a tool, and uses an LLM to produce a grounded, structured response with policy citations.
+The system combines an explicit agent orchestration layer with deterministic application logic, policy retrieval, structured LLM output, and a production-oriented Python backend. The initial implementation is intentionally lightweight while establishing an architecture that can evolve toward enterprise-scale AI workflow automation.
 
-> **Purpose:** Demonstrate practical AI application engineering and agentic workflow design, rather than build a full-scale HR product.
+## Capabilities
 
-## What It Demonstrates
-
-- **Agentic workflow:** Explicit LLM → tool → LLM execution loop implemented in Python
-- **LLM integration:** Anthropic LLM accessed through AWS Bedrock
-- **Production Python:** FastAPI, Pydantic, async programming, dependency separation
-- **Tool calling:** Agent dynamically invokes policy-search capabilities
-- **Grounded AI:** Responses are based on retrieved policy documents rather than model knowledge
-- **Structured output:** Pydantic models validate LLM-generated application data
-- **Testing:** pytest-based tests with the LLM/Bedrock boundary mocked
-- **Engineering discipline:** Clear separation between API, agent, LLM, tools, and domain logic
-- **Safety:** Explicit handling of insufficient evidence, tool failures, malformed output, and agent iteration limits
+- Natural-language HR policy questions
+- Agent-driven policy retrieval and reasoning
+- Tool calling for policy search
+- Grounded responses with policy citations
+- Structured, validated responses using Pydantic
+- Explicit agent execution limits and failure handling
+- Modular LLM integration through AWS Bedrock
+- Automated testing with the LLM boundary isolated from application logic
 
 ## Architecture
 
-```text
+```text id="8tcvf2"
                          User
                            |
                            v
@@ -44,59 +41,41 @@ The application allows employees to ask natural-language questions about company
                   Structured Response
                            |
                            v
-                       User
+                         User
 ```
 
-### Agent Execution Loop
+### Agent Execution
 
-The agent is intentionally implemented without an agent framework so that the orchestration mechanics remain explicit and easy to understand.
+The Policy Agent implements an explicit tool-calling loop rather than delegating orchestration to an agent framework.
 
-```text
-User Question
-      |
-      v
+```text id="qjlnav"
+User Request
+     |
+     v
     LLM
-      |
-      | tool request
-      v
+     |
+     | tool request
+     v
 search_policies()
-      |
-      | policy results
-      v
+     |
+     | retrieved policy context
+     v
     LLM
-      |
-      v
-Final Structured Answer
+     |
+     v
+Validated Response
 ```
 
-The loop supports multiple tool iterations and enforces a maximum iteration limit to prevent runaway execution.
+The agent runtime is responsible for:
 
-## Example
+- Maintaining conversation/tool-call state
+- Executing approved tools
+- Returning tool results to the LLM
+- Detecting completion
+- Enforcing execution limits
+- Validating final structured output
 
-### Request
-
-```http
-POST /ask
-Content-Type: application/json
-
-{
-  "question": "Can I work remotely from another state for three weeks?"
-}
-```
-
-### Response
-
-```json
-{
-  "answer": "Employees may temporarily work from another U.S. state for up to 10 business days per calendar year without changing their primary work location. A three-week arrangement requires additional approval from People Operations.",
-  "sources": [
-    "Remote Work Policy"
-  ],
-  "confidence": 0.92
-}
-```
-
-If the available policies do not provide sufficient information, the assistant explicitly says so rather than inventing an answer.
+This separation keeps orchestration logic explicit and allows additional tools, workflows, and agent capabilities to be introduced without coupling them to the API layer.
 
 ## Technology Stack
 
@@ -104,25 +83,25 @@ If the available policies do not provide sufficient information, the assistant e
 |---|---|
 | Language | Python 3.12+ |
 | API | FastAPI |
-| Data validation | Pydantic 2 |
+| Data modeling | Pydantic 2 |
 | HTTP | httpx |
 | AI runtime | AWS Bedrock |
 | LLM | Anthropic LLM |
 | AWS SDK | boto3 |
 | Testing | pytest, pytest-asyncio |
-| Documents | Markdown |
-| Deployment target | AWS / Kubernetes-compatible architecture |
+| Policy storage | Markdown |
+| Deployment target | AWS / Kubernetes |
 
 ## Project Structure
 
-```text
+```text id="39napd"
 .
 ├── app/
-│   ├── agent.py          # Policy Agent and orchestration loop
+│   ├── agent.py          # Agent orchestration
 │   ├── api.py            # FastAPI endpoints
 │   ├── llm.py            # Bedrock/LLM integration
 │   ├── models.py         # Pydantic models
-│   ├── policies.py       # Policy loading and search
+│   ├── policies.py       # Policy loading and retrieval
 │   └── tools.py          # Agent tools
 │
 ├── policies/
@@ -140,144 +119,225 @@ If the available policies do not provide sufficient information, the assistant e
 └── pyproject.toml
 ```
 
-## Design Decisions
+## Design Principles
 
-### Why a custom agent loop?
+### Explicit Agent Orchestration
 
-The MVP deliberately does not use an agent framework.
+The initial implementation uses a custom Python agent runtime rather than an agent framework.
 
-The goal is to make the fundamental agent architecture explicit:
+This provides direct control over:
 
-1. Provide the LLM with a goal and available tools.
-2. Allow the LLM to select a tool.
-3. Execute the tool in application code.
-4. Return the tool result to the LLM.
-5. Continue until a final answer is produced.
+- Tool selection and execution
+- Agent state
+- Execution limits
+- Error handling
+- Structured output
+- Observability boundaries
 
-This keeps the implementation transparent and makes it possible to evaluate agent frameworks later based on a concrete understanding of what they abstract.
+The architecture can later incorporate an agent framework if it provides meaningful capabilities without obscuring these controls.
 
-### Why Markdown instead of a vector database?
+### Deterministic Logic Around LLM Reasoning
 
-The prototype contains only a small set of policy documents. Keyword-based retrieval is sufficient for demonstrating the agent workflow while keeping the implementation focused.
+The system deliberately separates deterministic operations from probabilistic reasoning.
 
-A production implementation could evolve toward:
+**Application layer:**
 
-```text
+- API validation
+- Policy loading
+- Policy retrieval
+- Tool execution
+- Output validation
+- Execution limits
+- Error handling
+
+**LLM layer:**
+
+- Semantic interpretation
+- Policy reasoning
+- Answer generation
+- Tool selection where appropriate
+
+This provides greater predictability, testability, and operational control while avoiding unnecessary LLM calls.
+
+### Grounded Responses
+
+Policy documents are treated as the authoritative source for HR answers.
+
+The agent must not manufacture policy when sufficient evidence is unavailable. Responses identify the policy sources used to support the answer.
+
+## Current Scope
+
+The current implementation uses a small collection of Markdown policy documents and lightweight retrieval.
+
+This intentionally avoids introducing infrastructure that is not yet required by the workload.
+
+The architecture is designed to evolve toward:
+
+```text id="saxr2r"
 PDF / DOCX
     ↓
 Document ingestion
     ↓
-Chunking
+Parsing / chunking
     ↓
-Embedding generation
+Embedding / hybrid indexing
     ↓
-Vector / hybrid search
+Policy retrieval
     ↓
 Policy Agent
 ```
 
-without changing the core API or agent responsibilities.
+## API
 
-### Why separate deterministic logic from LLM reasoning?
+### `POST /ask`
 
-The system intentionally keeps deterministic operations such as:
+Request:
 
-- document loading
-- policy retrieval
-- validation
-- API handling
-- iteration limits
+```json id="ga8lmc"
+{
+  "question": "Can I work remotely from another state for three weeks?"
+}
+```
 
-outside the LLM.
+Response:
 
-The LLM is used where semantic reasoning and natural-language generation provide value.
+```json id="bv7unb"
+{
+  "answer": "Employees may temporarily work from another U.S. state for up to 10 business days per calendar year. A three-week arrangement requires additional approval.",
+  "sources": [
+    "Remote Work Policy"
+  ],
+  "confidence": 0.92
+}
+```
 
-This reduces unnecessary model usage and makes the system easier to test, debug, and control.
+### `GET /health`
 
-## Security Considerations
+Returns the service health status.
 
-Although this is an educational prototype, the design reflects patterns required for enterprise AI applications.
+## Reliability & Safety
 
-The system:
+The application explicitly handles:
 
-- Does not store AWS credentials in source code.
-- Uses the standard AWS credential chain.
-- Validates LLM output before returning it to the API consumer.
-- Limits agent execution.
-- Does not allow the LLM to directly modify company systems.
-- Explicitly handles insufficient policy evidence.
-- Separates external integrations behind application interfaces that can be mocked.
+- Invalid requests
+- Missing policy information
+- LLM/API failures
+- Tool failures
+- Invalid structured output
+- Agent execution limits
 
-A production implementation would additionally require authentication, authorization/RBAC, audit logging, tenant isolation, secrets management, data classification, and appropriate handling of PII/PHI.
+The LLM does not have unrestricted access to application capabilities. Tools are explicitly registered and executed by application code.
 
-## Testing
+## Security Foundation
 
-The test suite is designed to run without AWS credentials or network access.
+The current implementation establishes boundaries appropriate for an enterprise AI service:
 
-The Bedrock/LLM boundary is mocked so that tests can deterministically verify:
+- AWS credentials use the standard AWS credential chain.
+- Credentials are never stored in source code.
+- LLM-generated output is validated before entering the application response model.
+- External capabilities are exposed through explicit tools.
+- Agent execution is bounded.
+- External integrations can be isolated behind mockable interfaces.
+
+A production deployment would extend this foundation with:
+
+- Enterprise authentication and SSO
+- RBAC and policy-level authorization
+- Tenant isolation
+- Audit logging
+- AWS Secrets Manager
+- PII/PHI controls
+- Data classification and retention
+- Encryption and key management
+- Security and compliance monitoring
+
+## Testing Strategy
+
+The test suite isolates the LLM/Bedrock boundary so application behavior can be tested deterministically without AWS credentials or network access.
+
+Coverage includes:
 
 - Policy retrieval
-- Agent tool calling
-- Multiple agent iterations
+- Agent tool execution
+- Multi-step agent interactions
 - Structured output validation
 - Tool failures
-- Malformed LLM responses
-- Agent iteration limits
-- API validation and error handling
+- LLM failures
+- Execution limits
+- API validation
+- API error handling
 
 Run:
 
-```bash
+```bash id="iu9xnl"
 pytest
 ```
 
-## Running Locally
+## Configuration
 
-Install dependencies and configure AWS access using the standard AWS credential mechanism.
+Configure the Bedrock integration through environment variables:
 
-Set:
-
-```text
+```text id="jdjpoi"
 AWS_REGION=<aws-region>
 BEDROCK_MODEL_ID=<bedrock-model-id>
 ```
 
+AWS authentication uses the standard AWS credential chain.
+
+## Local Development
+
 Start the API:
 
-```bash
+```bash id="642uoi"
 uvicorn app.api:app --reload
 ```
 
-Health check:
+The FastAPI-generated API documentation can be used to exercise the service interactively.
 
-```bash
-curl http://localhost:8000/health
-```
+## Evolution Path
 
-Interactive API documentation is available through FastAPI's generated documentation.
+The architecture provides a foundation for extending the assistant into a broader enterprise AI automation platform.
 
-## Future Extensions
+Potential capabilities include:
 
-Potential next steps for evolving the prototype toward a production enterprise AI application include:
+### Enterprise Knowledge
 
-- PostgreSQL + pgvector or hybrid search
-- PDF/DOCX document ingestion
-- Authentication and RBAC
-- Per-user and per-document authorization
-- Audit trails
-- Enterprise identity integration
-- MCP-based enterprise system connectors
-- Multi-agent workflow orchestration
-- Human approval steps for sensitive actions
-- LLM evaluation and regression testing
-- Token and latency monitoring
-- PII/PHI detection and data controls
-- AWS EKS deployment
+- PDF/DOCX ingestion
+- Semantic and hybrid retrieval
+- PostgreSQL / pgvector
+- Document versioning
+- Access-controlled knowledge sources
 
-## Why This Project
+### Agentic Workflows
 
-This project explores a practical pattern for **AI-native enterprise software**:
+- Additional specialized tools
+- Multi-agent coordination
+- Agent registries
+- Workflow state and persistence
+- Scheduled agent execution
+- Human approval gates
+- Feedback and evaluation loops
 
-> **Combine conventional software engineering with LLM reasoning where it provides measurable value, while keeping control, validation, security, and deterministic business logic in the application layer.**
+### Enterprise Integrations
 
-The same architecture generalizes beyond HR policies to enterprise workflows such as document analysis, compliance assistance, customer operations, finance automation, and internal knowledge systems.
+- HRIS
+- CRM
+- ERP
+- Project management systems
+- Email and collaboration systems
+- OAuth2-based delegated access
+- MCP-based enterprise connectors
+
+### Production Platform
+
+- AWS EKS
+- Helm
+- ArgoCD
+- CI/CD
+- Distributed tracing
+- LLM observability
+- Token and cost monitoring
+- Automated evaluation
+- Reliability and performance monitoring
+
+The initial Policy Agent is intentionally narrow, but its execution model is designed to support progressively more capable enterprise AI workflows.
