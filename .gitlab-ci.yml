@@ -1,0 +1,70 @@
+# GitLab CI/CD for the HR Policy Assistant.
+#
+# Pipeline:
+#   test    - install deps with uv and run pytest (no AWS, no network)
+#   deploy  - manual; SSH into the EC2 host, pull, `uv sync`, restart systemd
+#
+# Required CI/CD variables for the deploy job (Settings -> CI/CD -> Variables,
+# marked Protected + Masked):
+#   SSH_PRIVATE_KEY  private key whose public half is in the deploy user's
+#                    ~/.ssh/authorized_keys on the EC2 host
+#   EC2_HOST         Elastic IP or DNS name of the instance
+#   EC2_USER         deploy user (e.g. hrapp)
+#   DEPLOY_PATH      checkout path on the host (e.g. /opt/hr-policy-assistant)
+#
+# No AWS credentials are needed anywhere: the EC2 instance role provides Bedrock
+# access via the standard AWS credential chain.
+
+stages:
+  - test
+  - deploy
+
+default:
+  interruptible: true
+
+test:
+  stage: test
+  image: ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+  variables:
+    UV_CACHE_DIR: "$CI_PROJECT_DIR/.uv-cache"
+  cache:
+    key:
+      files:
+        - uv.lock
+    paths:
+      - .uv-cache
+  script:
+    - uv sync --frozen
+    - uv run pytest -q
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+
+deploy:
+  stage: deploy
+  image: alpine:3.20
+  needs: ["test"]
+  environment:
+    name: production
+    url: http://$EC2_HOST:8000
+  rules:
+    # Deploy only from the default branch, and only when triggered by hand.
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+  before_script:
+    - apk add --no-cache openssh-client
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+    - ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+  script:
+    - |
+      ssh "$EC2_USER@$EC2_HOST" "
+        set -euo pipefail
+        cd '$DEPLOY_PATH'
+        git fetch --all --prune
+        git reset --hard 'origin/$CI_DEFAULT_BRANCH'
+        uv sync --frozen
+        sudo systemctl restart hr-policy-assistant
+      "
+    - sleep 3
+    - ssh "$EC2_USER@$EC2_HOST" 'curl -fsS http://127.0.0.1:8000/health'
