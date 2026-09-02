@@ -292,10 +292,16 @@ The project uses [uv](https://docs.astral.sh/uv/) for dependency management
 | Variable | Default | Purpose |
 |---|---|---|
 | `AWS_REGION` | `us-east-1` | Region for the Bedrock runtime client. |
-| `BEDROCK_MODEL_ID` | `us.anthropic.claude-sonnet-4-5-20250929-v1:0` | Converse API model / inference-profile ID your account can access. |
+| `BEDROCK_MODEL_ID` | `us.amazon.nova-lite-v1:0` | Converse API model / inference-profile ID your account can access; must support Converse tool use. |
 | `POLICY_DIR` | `document-base` | Directory of policy `*.md` files (relative to repo root or absolute). |
 | `AGENT_MAX_ITERATIONS` | `5` | Maximum LLM ↔ tool iterations before the agent gives up. |
 | `LLM_BACKEND` | `bedrock` | `bedrock` calls AWS Bedrock; `stub` returns canned answers with no AWS calls (local API/UI testing). |
+
+The default model is `us.amazon.nova-lite-v1:0` because it needs no access
+request on Bedrock. Any Converse-capable model that supports tool use works —
+set `BEDROCK_MODEL_ID` to `us.anthropic.claude-sonnet-4-5-20250929-v1:0` (or
+another Claude model) once the Anthropic use-case form is approved for your
+account.
 
 AWS authentication uses the standard AWS credential chain (environment, shared
 config/credentials file, SSO, instance role). Credentials are never read from
