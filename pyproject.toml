@@ -1,0 +1,34 @@
+[project]
+name = "hr-policy-assistant"
+version = "0.1.0"
+description = "AI HR Policy Assistant: an explicit LLM -> tool -> LLM agent over local HR policy documents."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7",
+    "boto3>=1.34",
+    "httpx>=0.27",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+filterwarnings = [
+    # starlette's TestClient still imports httpx; not our concern.
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

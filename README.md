@@ -97,26 +97,34 @@ This separation keeps orchestration logic explicit and allows additional tools, 
 ```text id="39napd"
 .
 ├── app/
-│   ├── agent.py          # Agent orchestration
-│   ├── api.py            # FastAPI endpoints
-│   ├── llm.py            # Bedrock/LLM integration
-│   ├── models.py         # Pydantic models
-│   ├── policies.py       # Policy loading and retrieval
-│   └── tools.py          # Agent tools
+│   ├── config.py         # Environment-driven settings
+│   ├── models.py         # Pydantic models (requests, responses, domain objects)
+│   ├── policies.py       # Policy loading and keyword search
+│   ├── llm.py            # Bedrock Converse abstraction + LLMClient protocol
+│   ├── tools.py          # Tool specs (search_policies, submit_answer) + dispatch
+│   ├── agent.py          # PolicyAgent: explicit LLM -> tool -> LLM loop
+│   └── api.py            # FastAPI endpoints (POST /ask, GET /health)
 │
-├── policies/
-│   ├── remote-work.md
-│   ├── paid-time-off.md
-│   ├── business-travel.md
-│   ├── expense-reimbursement.md
-│   ├── parental-leave.md
-│   └── information-security-and-privacy.md
+├── document-base/                       # Policy source documents (only *.md is loaded)
+│   ├── Remote Work Policy.md
+│   ├── Paid Time Off Policy.md
+│   ├── Business Travel Policy.md
+│   ├── Expense Reimbursement Policy.md
+│   ├── Parental Leave Policy.md
+│   └── Information Security and Privacy Policy.md
 │
-├── tests/
+├── tests/                # pytest suite; FakeLLM mocks the Bedrock boundary
+│   ├── conftest.py
+│   ├── test_policies.py
+│   ├── test_tools.py
+│   ├── test_agent.py
+│   └── test_api.py
+├── .env.example
+├── pyproject.toml
+├── uv.lock
 ├── CLAUDE.md
 ├── REQUIREMENTS.md
-├── .gitignore
-└── pyproject.toml
+└── PLAN.md
 ```
 
 ## Design Principles
@@ -270,29 +278,61 @@ Coverage includes:
 Run:
 
 ```bash id="iu9xnl"
-pytest
+uv run pytest
 ```
+
+The suite needs no AWS credentials and makes no network calls.
 
 ## Configuration
 
-Configure the Bedrock integration through environment variables:
+The project uses [uv](https://docs.astral.sh/uv/) for dependency management
+(`pyproject.toml` + `uv.lock`). All settings are environment variables; copy
+`.env.example` to `.env` and adjust:
 
-```text id="jdjpoi"
-AWS_REGION=<aws-region>
-BEDROCK_MODEL_ID=<bedrock-model-id>
-```
+| Variable | Default | Purpose |
+|---|---|---|
+| `AWS_REGION` | `us-east-1` | Region for the Bedrock runtime client. |
+| `BEDROCK_MODEL_ID` | `us.anthropic.claude-sonnet-4-5-20250929-v1:0` | Converse API model / inference-profile ID your account can access. |
+| `POLICY_DIR` | `document-base` | Directory of policy `*.md` files (relative to repo root or absolute). |
+| `AGENT_MAX_ITERATIONS` | `5` | Maximum LLM ↔ tool iterations before the agent gives up. |
+| `LLM_BACKEND` | `bedrock` | `bedrock` calls AWS Bedrock; `stub` returns canned answers with no AWS calls (local API/UI testing). |
 
-AWS authentication uses the standard AWS credential chain.
+AWS authentication uses the standard AWS credential chain (environment, shared
+config/credentials file, SSO, instance role). Credentials are never read from
+source or committed.
 
 ## Local Development
 
-Start the API:
+Install dependencies and start the API:
 
 ```bash id="642uoi"
-uvicorn app.api:app --reload
+uv sync
+uv run uvicorn app.api:app --reload
 ```
 
-The FastAPI-generated API documentation can be used to exercise the service interactively.
+Check health and ask a question:
+
+```bash id="hf83kd"
+curl http://127.0.0.1:8000/health
+# {"status":"ok"}
+
+curl -X POST http://127.0.0.1:8000/ask \
+  -H 'content-type: application/json' \
+  -d '{"question": "Can I work remotely from another state for three weeks?"}'
+# {"answer": "...", "sources": ["Remote Work Policy"], "confidence": 0.9}
+```
+
+`/ask` requires valid AWS credentials with Bedrock access to the configured
+model. The interactive API docs are available at `http://127.0.0.1:8000/docs`.
+
+To run the full HTTP surface with no AWS at all, use the stub backend:
+
+```bash id="stub01"
+LLM_BACKEND=stub uv run uvicorn app.api:app --reload
+```
+
+It drives the real agent loop and real policy search, then returns a canned
+`[STUB]` answer instead of calling Bedrock.
 
 ## Evolution Path
 
