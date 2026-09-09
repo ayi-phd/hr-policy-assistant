@@ -21,6 +21,7 @@ def test_defaults_when_env_unset(monkeypatch: pytest.MonkeyPatch) -> None:
     settings = get_settings()
 
     assert settings.aws_region == "us-east-1"
+    assert settings.bedrock_model_id == "us.amazon.nova-lite-v1:0"
     assert settings.agent_max_iterations == 5
     assert settings.llm_backend == "bedrock"
     assert settings.policy_dir.name == "document-base"

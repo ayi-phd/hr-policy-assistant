@@ -141,5 +141,5 @@ For each new task or feature:
    git switch develop
    git pull origin develop
    ```
-
-**Never commit, push, or switch branches without explicit approval at that step.**
+8. Never delete local branches.
+**Never commit, push, or switch branches without explicit approval at that step. Never delete local branches. **

@@ -50,7 +50,7 @@ pyproject.toml
 ### `app/config.py`
 Plain dataclass `Settings` populated from `os.getenv` (no new deps):
 `aws_region` (`AWS_REGION`, default `us-east-1`), `bedrock_model_id` (`BEDROCK_MODEL_ID`,
-default a current Bedrock Sonnet inference-profile id), `policy_dir` (`POLICY_DIR`, default
+default a Bedrock Converse model id that supports tool use), `policy_dir` (`POLICY_DIR`, default
 `document-base`), `agent_max_iterations` (`AGENT_MAX_ITERATIONS`, default `5`).
 `get_settings()` cached with `functools.lru_cache`.
 
