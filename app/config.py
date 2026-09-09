@@ -13,7 +13,7 @@ from functools import lru_cache
 from pathlib import Path
 
 DEFAULT_AWS_REGION = "us-east-1"
-DEFAULT_BEDROCK_MODEL_ID = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+DEFAULT_BEDROCK_MODEL_ID = "us.amazon.nova-lite-v1:0"
 DEFAULT_POLICY_DIR = "document-base"
 DEFAULT_AGENT_MAX_ITERATIONS = 5
 DEFAULT_LLM_BACKEND = "bedrock"
