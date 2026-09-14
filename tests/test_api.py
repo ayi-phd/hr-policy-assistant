@@ -89,6 +89,43 @@ def test_build_agent_with_stub_backend_answers_without_aws(monkeypatch) -> None:
     assert answer.sources == ["Remote Work Policy"]
 
 
+def test_cors_allows_configured_origin(make_client) -> None:
+    # CORSMiddleware is registered once, at app import time, with the default
+    # CORS_ALLOWED_ORIGINS (no test sets that env var before app.api is imported).
+    client = make_client([])
+
+    resp = client.get("/health", headers={"Origin": "http://localhost:3000"})
+
+    assert resp.status_code == 200
+    assert resp.headers["access-control-allow-origin"] == "http://localhost:3000"
+
+
+def test_cors_preflight_for_ask_from_configured_origin(make_client) -> None:
+    client = make_client([])
+
+    resp = client.options(
+        "/ask",
+        headers={
+            "Origin": "https://fractalai.cloud",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+    assert resp.status_code == 200
+    assert resp.headers["access-control-allow-origin"] == "https://fractalai.cloud"
+    assert "POST" in resp.headers["access-control-allow-methods"]
+
+
+def test_cors_omits_header_for_unlisted_origin(make_client) -> None:
+    client = make_client([])
+
+    resp = client.get("/health", headers={"Origin": "https://evil.example"})
+
+    assert resp.status_code == 200  # server still answers...
+    assert "access-control-allow-origin" not in resp.headers  # ...but a browser would block it
+
+
 def test_ask_unexpected_error_maps_to_500(make_client, monkeypatch) -> None:
     from app.agent import PolicyAgent
 

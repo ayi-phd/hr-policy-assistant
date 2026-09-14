@@ -296,6 +296,7 @@ The project uses [uv](https://docs.astral.sh/uv/) for dependency management
 | `POLICY_DIR` | `document-base` | Directory of policy `*.md` files (relative to repo root or absolute). |
 | `AGENT_MAX_ITERATIONS` | `5` | Maximum LLM ↔ tool iterations before the agent gives up. |
 | `LLM_BACKEND` | `bedrock` | `bedrock` calls AWS Bedrock; `stub` returns canned answers with no AWS calls (local API/UI testing). |
+| `CORS_ALLOWED_ORIGINS` | `https://fractalai.cloud,http://localhost:3000` | Comma-separated browser origins allowed to call this API. |
 
 The default model is `us.amazon.nova-lite-v1:0` because it needs no access
 request on Bedrock. Any Converse-capable model that supports tool use works —

@@ -18,6 +18,7 @@ DEFAULT_POLICY_DIR = "document-base"
 DEFAULT_AGENT_MAX_ITERATIONS = 5
 DEFAULT_LLM_BACKEND = "bedrock"
 LLM_BACKENDS = ("bedrock", "stub")
+DEFAULT_CORS_ALLOWED_ORIGINS = ("https://fractalai.cloud", "http://localhost:3000")
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -31,6 +32,7 @@ class Settings:
     policy_dir: Path = _REPO_ROOT / DEFAULT_POLICY_DIR
     agent_max_iterations: int = DEFAULT_AGENT_MAX_ITERATIONS
     llm_backend: str = DEFAULT_LLM_BACKEND
+    cors_allowed_origins: tuple[str, ...] = DEFAULT_CORS_ALLOWED_ORIGINS
 
 
 def _resolve_policy_dir(raw: str | None) -> Path:
@@ -63,6 +65,13 @@ def _resolve_llm_backend(raw: str | None) -> str:
     return value
 
 
+def _resolve_cors_origins(raw: str | None) -> tuple[str, ...]:
+    if not raw:
+        return DEFAULT_CORS_ALLOWED_ORIGINS
+    origins = tuple(origin.strip() for origin in raw.split(",") if origin.strip())
+    return origins or DEFAULT_CORS_ALLOWED_ORIGINS
+
+
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Build (and cache) settings from the current environment."""
@@ -73,4 +82,5 @@ def get_settings() -> Settings:
         policy_dir=_resolve_policy_dir(os.getenv("POLICY_DIR")),
         agent_max_iterations=_resolve_max_iterations(os.getenv("AGENT_MAX_ITERATIONS")),
         llm_backend=_resolve_llm_backend(os.getenv("LLM_BACKEND")),
+        cors_allowed_origins=_resolve_cors_origins(os.getenv("CORS_ALLOWED_ORIGINS")),
     )

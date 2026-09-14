@@ -15,7 +15,14 @@ def _clear_settings_cache():
 
 
 def test_defaults_when_env_unset(monkeypatch: pytest.MonkeyPatch) -> None:
-    for var in ("AWS_REGION", "BEDROCK_MODEL_ID", "POLICY_DIR", "AGENT_MAX_ITERATIONS", "LLM_BACKEND"):
+    for var in (
+        "AWS_REGION",
+        "BEDROCK_MODEL_ID",
+        "POLICY_DIR",
+        "AGENT_MAX_ITERATIONS",
+        "LLM_BACKEND",
+        "CORS_ALLOWED_ORIGINS",
+    ):
         monkeypatch.delenv(var, raising=False)
 
     settings = get_settings()
@@ -25,6 +32,10 @@ def test_defaults_when_env_unset(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.agent_max_iterations == 5
     assert settings.llm_backend == "bedrock"
     assert settings.policy_dir.name == "document-base"
+    assert settings.cors_allowed_origins == (
+        "https://fractalai.cloud",
+        "http://localhost:3000",
+    )
 
 
 def test_llm_backend_stub_is_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -51,3 +62,16 @@ def test_agent_max_iterations_must_be_positive_int(monkeypatch: pytest.MonkeyPat
 
 def test_known_backends() -> None:
     assert LLM_BACKENDS == ("bedrock", "stub")
+
+
+def test_cors_origins_are_parsed_and_trimmed(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CORS_ALLOWED_ORIGINS", " https://a.example , https://b.example ")
+    assert get_settings().cors_allowed_origins == ("https://a.example", "https://b.example")
+
+
+def test_cors_origins_blank_falls_back_to_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CORS_ALLOWED_ORIGINS", "  ,  ,")
+    assert get_settings().cors_allowed_origins == (
+        "https://fractalai.cloud",
+        "http://localhost:3000",
+    )
