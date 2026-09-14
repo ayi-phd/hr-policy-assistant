@@ -8,6 +8,7 @@ from typing import AsyncIterator
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.concurrency import run_in_threadpool
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.agent import (
     AgentError,
@@ -49,6 +50,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="HR Policy Assistant", version="0.1.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=list(get_settings().cors_allowed_origins),
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+)
 
 
 def get_agent() -> PolicyAgent:
